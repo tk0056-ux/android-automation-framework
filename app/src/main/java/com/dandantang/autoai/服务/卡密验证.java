@@ -15,7 +15,8 @@ public class 卡密验证 {
 
 
     public static void 卡密验证() {
-        // 在内部调用私有底层逻辑
+        // 在内部调用私有底层逻辑+
+        Log.d("验证结果", "卡密验证: "+ globalvariable.keyhttp +"参数"+  globalvariable.keyParameter);
         网络访问.访问POST(globalvariable.keyhttp, globalvariable.keyParameter,1);
     };
     public static void 卡密验证结果处理(String 访问结果){
@@ -30,12 +31,12 @@ public class 卡密验证 {
             if (分割.length > 0) {
                 int 成员数 = 分割.length;
                 for (int i = 0; i < 分割.length; i++) {
-                    //Log.d("验证结果", "卡密验证结果处理: " + 分割[i]);
+                    Log.d("验证结果", "卡密验证结果处理: " + 分割[i]);
                     switch (i) {
                         case 0:
                             UI处理.界面修改_验证结果(分割[i]);//在UI上显示 剩余时间
                             Log.d("验证结果", "卡密验证结果处理: "+ 分割[i]);
-
+                            验证结果成功();
 
                             break;
                         case 1:
@@ -72,6 +73,11 @@ public class 卡密验证 {
         Intent serviceIntent = new Intent(globalvariable.上下文, 悬浮窗服务.class);
         // 必须执行启动命令，服务才会运行
         globalvariable.上下文.startForegroundService(serviceIntent);
+    }
+
+    public static void 验证结果成功(){
+        // 验证通过后
+
     }
 
 

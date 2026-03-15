@@ -184,6 +184,8 @@ public class 悬浮窗服务 extends Service {
                 isRunning = true;
                 运行按钮.setImageResource(android.R.drawable.ic_media_pause);
                 Toast.makeText(this, "脚本已启动", Toast.LENGTH_SHORT).show();
+
+
             } else {
                 String status = luaManager.获取当前状态();
                 if (status.equals(Lua环境管理器.STATUS_RUNNING)) {

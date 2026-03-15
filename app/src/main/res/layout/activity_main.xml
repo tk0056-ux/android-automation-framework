@@ -98,21 +98,32 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:text="HID模式" />
+        android:textSize="12sp"
+        android:text="HID" />
+
+    <RadioButton
+        android:id="@+id/acc"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="12sp"
+        android:text="无障碍" />
 
     <RadioButton
         android:id="@+id/mode_adb"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:text="ADB模式" />
+        android:textSize="12sp"
+        android:text="ADB" />
 
     <RadioButton
         android:id="@+id/mode_root"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:text="root模式" />
+        android:textSize="12sp"
+        android:text="root" />
 </RadioGroup>
 
     <TextView

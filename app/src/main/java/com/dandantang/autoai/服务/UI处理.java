@@ -110,6 +110,24 @@ public class UI处理 {
         编辑器.putInt("选中的模式ID", UI界面_单选框组_模式.getCheckedRadioButtonId());
         编辑器.apply(); // 异步提交保存
         globalvariable.cdk = UI界面_文本框_卡密.getText().toString();
+        int checkedId = UI界面_单选框组_模式.getCheckedRadioButtonId();
+
+        if (checkedId == R.id.mode_root) {
+            globalvariable.open模式 = "root";
+            //Log.d("控制模式111", "当前模式: root模式");
+        } else if (checkedId == R.id.Mode_HID) {
+            globalvariable.open模式 = "hid";
+            //Log.d("控制模式111", "当前模式: HID模式");
+        } else if (checkedId == R.id.acc) {
+            globalvariable.open模式 = "acc";
+            //Log.d("控制模式111", "当前模式: 无障碍模式");
+        } else if (checkedId == R.id.mode_adb) {
+            globalvariable.open模式 = "adb";
+            //Log.d("控制模式111", "当前模式: ADB模式");
+        } else {
+            globalvariable.open模式 = "hid";
+            //Log.d("控制模式111", "当前模式: 未选择 (假)");
+        }
     }
 
     private void 加载所有配置() {

@@ -2,6 +2,7 @@ package com.dandantang.autoai;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.AssetManager; // 新增：资源管理器引用
 import android.os.Bundle;
 import android.util.Log;
@@ -128,14 +129,24 @@ public class MainActivity extends AppCompatActivity {
 
             if (权限申请.是否有基础权限(this)) {
                 UI.保存当前所有配置();
-                ce.saveSettings(this);
+                权限申请.控制模式权限申请(this);
                 globalvariable.初始化keyhttp参数(this) ;
-
                 卡密验证.卡密验证();
 
             } else {
                 Toast.makeText(this, "请先授予必要权限", Toast.LENGTH_SHORT).show();
             }
+
+
+
+
+
+
+
+
+
+
+
         });
     }
 
