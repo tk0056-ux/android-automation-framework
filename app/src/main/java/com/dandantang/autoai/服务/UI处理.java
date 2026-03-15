@@ -17,6 +17,7 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.dandantang.autoai.R;
 
+import fi.iki.elonen.NanoHTTPD;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.OkHttpClient;
@@ -31,6 +32,11 @@ import java.util.Collections;
 import java.util.List;
 
 import com.dandantang.autoai.globalvariable;
+import com.dandantang.autoai.cesss;
+
+
+
+
 public class UI处理 {
     private Activity 当前界面;
     private SharedPreferences 本地配置;
@@ -111,7 +117,6 @@ public class UI处理 {
         编辑器.apply(); // 异步提交保存
         globalvariable.cdk = UI界面_文本框_卡密.getText().toString();
         int checkedId = UI界面_单选框组_模式.getCheckedRadioButtonId();
-
         if (checkedId == R.id.mode_root) {
             globalvariable.open模式 = "root";
             //Log.d("控制模式111", "当前模式: root模式");
@@ -128,6 +133,20 @@ public class UI处理 {
             globalvariable.open模式 = "hid";
             //Log.d("控制模式111", "当前模式: 未选择 (假)");
         }
+
+        if(UI界面_调试模式.isChecked()){
+
+            try {
+                // 实例化并指定端口
+                cesss http服务器 = new cesss(8080);
+                http服务器.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
+                Log.d("HTTP", "本地服务器已启动，监听端口: 8080 [真]");
+            } catch (IOException e) {
+                Log.e("HTTP", "启动失败: " + e.getMessage() + " [假]");
+            }
+            // Log.d("hid111", "以勾选: ");
+        }
+
     }
 
     private void 加载所有配置() {

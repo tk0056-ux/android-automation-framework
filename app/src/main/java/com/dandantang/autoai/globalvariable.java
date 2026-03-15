@@ -15,7 +15,8 @@ public class globalvariable {
     public static String keyParameter = "";
     public static String open模式 = ""; // 操作模式  hid  adb  root 无障碍？？？
     public static Intent 截图数据令牌 = null;
-    public static int 截图数据令牌结果码 = -1;
+    public static int 截图数据令牌结果码 = 0;
+    public static String 蓝牙已连接设备 = "";
 
     public static void 初始化keyhttp参数(Context context){
         // 卫士盾验证的api 卡密验证地址  不同的软件 需要使用不同的地址

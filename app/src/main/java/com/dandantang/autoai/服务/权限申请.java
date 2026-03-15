@@ -28,6 +28,12 @@ public class 权限申请 {
     public static final int REQUEST_CODE_OVERLAY = 102; // 悬浮窗请求码.
     public static final int REQUEST_CODE_SCREEN_CAPTURE = 2026; // 截图权限请求码
 
+
+
+    // 保存当前 Activity 和回调的静态变量
+
+
+
     // 检查是否有基础权限 (存储 + 电话)
     public static boolean 是否有基础权限(Context context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
@@ -43,37 +49,34 @@ public class 权限申请 {
 
 
     public static void 控制模式权限申请(Context context){
+
         if ("hid".equals(globalvariable.open模式)){
             Log.d("控制模式", "当前模式：HID");
-            if (globalvariable.截图数据令牌 == null) {
-                if (context instanceof Activity) {
-                    Activity activity = (Activity) context;
-                    MediaProjectionManager mpm = (MediaProjectionManager) activity.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-                    if (mpm != null) {
-                        // 弹出系统投屏授权框
-                        activity.startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_CODE_SCREEN_CAPTURE);
-                    }
-                }
+
+            // HID模式：检查并获取截图令牌
+            if (globalvariable.截图数据令牌结果码 != -1) {
+
+
+
             } else {
-                Log.d("控制模式", "截图令牌已存在，无需重复申请");
+                //Log.d("控制模式", "截图令牌已存在，无需重复申请");
+
             }
-
-
 
         } else if ("root".equals(globalvariable.open模式)) {
             ce.saveSettings(context,"/com.systeam.dandantang");  // 启动ce
             Log.d("控制模式", "当前模式：root ");
+
         } else if ("acc".equals(globalvariable.open模式)) {
             Log.d("控制模式", "当前模式：无障碍 ");
+
         } else if ("adb".equals(globalvariable.open模式)) {
             Log.d("控制模式", "当前模式：adb ");
+
         }
-
-
     }
 
-
-
+    // 处理权限结果（在 Activity 的 onActivityResult 中调用）
 
 
 

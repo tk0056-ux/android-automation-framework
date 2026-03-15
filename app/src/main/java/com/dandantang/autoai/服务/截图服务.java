@@ -38,6 +38,10 @@ public class 截图服务 extends Service {
     private static int mScreenHeight;
     private static int mScreenDensity;
 
+    // 新增：初始化状态标志
+    private static boolean mIsInitialized = false;
+    private static final Object mLock = new Object();
+
     @Override
     public IBinder onBind(Intent intent) { return null; }
 
@@ -45,28 +49,64 @@ public class 截图服务 extends Service {
     public void onCreate() {
         super.onCreate();
         mWindowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        Log.d(TAG, "截图服务创建");
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.d(TAG, "截图服务启动命令接收");
         创建通知渠道();
 
-        // 1. 初始化屏幕参数
-        更新显示指标();
+        // 在新线程中初始化，避免阻塞主线程
+        new Thread(() -> {
+            synchronized (mLock) {
+                // 1. 初始化屏幕参数
+                更新显示指标();
 
-        // 2. 初始化 MediaProjection 引擎
-        if (globalvariable.截图数据令牌 != null) {
-            MediaProjectionManager projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-            mMediaProjection = projectionManager.getMediaProjection(globalvariable.截图数据令牌结果码 , globalvariable.截图数据令牌 );
+                // 2. 初始化 MediaProjection 引擎
+                if (globalvariable.截图数据令牌 != null) {
+                    MediaProjectionManager projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                    mMediaProjection = projectionManager.getMediaProjection(globalvariable.截图数据令牌结果码, globalvariable.截图数据令牌);
 
-            if (mMediaProjection != null) {
-                Log.d(TAG, "MediaProjection 引擎启动成功");
-                准备图像读取器();
-            } else {
-                Log.e(TAG, "引擎启动失败：权限令牌无效");
+                    if (mMediaProjection != null) {
+                        Log.d(TAG, "MediaProjection 引擎启动成功");
+                        准备图像读取器();
+                        mIsInitialized = true;
+                        Log.d(TAG, "✓ 截图服务初始化完成");
+                    } else {
+                        Log.e(TAG, "引擎启动失败：权限令牌无效");
+                    }
+                } else {
+                    Log.e(TAG, "截图数据令牌为 null");
+                }
+            }
+        }).start();
+
+        return START_STICKY;
+    }
+
+    // 新增：检查服务是否已初始化
+    public static boolean 是否已初始化() {
+        synchronized (mLock) {
+            return mIsInitialized && mMediaProjection != null && mImageReader != null;
+        }
+    }
+
+    // 新增：等待初始化完成
+    public static boolean 等待初始化完成(long timeoutMs) {
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            if (是否已初始化()) {
+                return true;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
             }
         }
-        return START_STICKY;
+        return false;
     }
 
     private void 创建通知渠道() {
@@ -91,6 +131,7 @@ public class 截图服务 extends Service {
         mScreenWidth = metrics.widthPixels;
         mScreenHeight = metrics.heightPixels;
         mScreenDensity = metrics.densityDpi;
+        Log.d(TAG, "屏幕尺寸更新: " + mScreenWidth + "x" + mScreenHeight);
     }
 
     // 核心：创建或重建虚拟显示器
@@ -106,7 +147,7 @@ public class 截图服务 extends Service {
                 mImageReader = null;
             }
 
-            // 创建新的 ImageReader，注意宽高必须是当前的物理宽高
+            // 创建新的 ImageReader
             mImageReader = ImageReader.newInstance(mScreenWidth, mScreenHeight, PixelFormat.RGBA_8888, 2);
             mVirtualDisplay = mMediaProjection.createVirtualDisplay(
                     "ScreenCapture",
@@ -114,6 +155,8 @@ public class 截图服务 extends Service {
                     DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                     mImageReader.getSurface(), null, null);
 
+            // 等待虚拟显示就绪
+            Thread.sleep(200);
             Log.d(TAG, "ImageReader 已重构: " + mScreenWidth + "x" + mScreenHeight);
         } catch (Exception e) {
             Log.e(TAG, "准备图像读取器失败: " + e.getMessage());
@@ -124,7 +167,8 @@ public class 截图服务 extends Service {
      * 供外部调用的静态截图方法
      */
     public static Bitmap 获取当前全屏截图() {
-        if (mImageReader == null || mMediaProjection == null) {
+        // 等待初始化完成（最多3秒）
+        if (!等待初始化完成(3000)) {
             Log.e(TAG, "截图失败：引擎未初始化");
             return null;
         }
@@ -138,21 +182,27 @@ public class 截图服务 extends Service {
         if (preW != mScreenWidth || preH != mScreenHeight) {
             Log.w(TAG, "检测到屏幕旋转，正在重构缓冲区...");
             准备图像读取器();
-            // 等待硬件缓冲区就绪
-            try { Thread.sleep(150); } catch (InterruptedException ignored) {}
+            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
         }
 
         Image image = null;
         try {
-            // 尝试获取最新帧
-            image = mImageReader.acquireLatestImage();
-            if (image == null) {
-                image = mImageReader.acquireNextImage();
+            // 尝试获取最新帧，增加重试机制
+            for (int retry = 0; retry < 3; retry++) {
+                image = mImageReader.acquireLatestImage();
+                if (image != null) break;
+                Thread.sleep(50);
             }
-            if (image == null) return null;
+
+            if (image == null) {
+                Log.e(TAG, "获取图像失败：无法获取到图像帧");
+                return null;
+            }
 
             int width = image.getWidth();
             int height = image.getHeight();
+            Log.d(TAG, "获取到图像: " + width + "x" + height);
+
             Image.Plane[] planes = image.getPlanes();
             ByteBuffer buffer = planes[0].getBuffer();
 
@@ -186,10 +236,12 @@ public class 截图服务 extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (mVirtualDisplay != null) mVirtualDisplay.release();
-        if (mImageReader != null) mImageReader.close();
-        if (mMediaProjection != null) mMediaProjection.stop();
+        synchronized (mLock) {
+            if (mVirtualDisplay != null) mVirtualDisplay.release();
+            if (mImageReader != null) mImageReader.close();
+            if (mMediaProjection != null) mMediaProjection.stop();
+            mIsInitialized = false;
+        }
         Log.d(TAG, "截图服务已停止，资源已释放");
     }
-
 }

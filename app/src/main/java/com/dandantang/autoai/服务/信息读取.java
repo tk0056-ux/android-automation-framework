@@ -78,7 +78,7 @@ public class 信息读取 {
         if (avccc1.length() > 6) avccc1 = avccc1.substring(0, 6);
         while (avccc1.length() < 6) avccc1 += "0";
 
-        Log.d("机器码", "机器码: " + avccc1);
+        //Log.d("机器码", "机器码: " + avccc1);
 
         return avccc1;
     }

@@ -4,10 +4,14 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.AssetManager; // 新增：资源管理器引用
+import android.media.projection.MediaProjectionManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -17,6 +21,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.dandantang.autoai.服务.UI处理;
 import com.dandantang.autoai.服务.信息读取;
 import com.dandantang.autoai.服务.悬浮窗服务;
+import com.dandantang.autoai.服务.截图服务;
 import com.dandantang.autoai.服务.权限申请;
 import com.dandantang.autoai.服务.网络访问;
 import com.dandantang.autoai.javaluamod.javasystemluamod;
@@ -24,6 +29,7 @@ import com.dandantang.autoai.globalvariable;
 import com.dandantang.autoai.服务.卡密验证;
 import com.dandantang.autoai.服务.Lua环境管理器;
 import com.dandantang.autoai.服务.ce;
+import com.dandantang.autoai.服务.蓝牙管理器;
 
 // 新增：缺少的导入
 import android.content.BroadcastReceiver;
@@ -32,6 +38,7 @@ import android.content.Context;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "LuaTest";
@@ -97,13 +104,14 @@ public class MainActivity extends AppCompatActivity {
 
         // Android 14+ 需要使用这个新方法
         registerReceiver(luaRunReceiver, new IntentFilter("com.dandantang.autoai.RUN_LUA"),
-                Context.RECEIVER_NOT_EXPORTED);  // 不导出，更安全
+                Context.RECEIVER_NOT_EXPORTED);  //
 
 
 
         // 初始化 UI 和权限
         UI = new UI处理();
         UI.绑定UI控件(this);
+
         权限申请.申请悬浮窗权限(this);
         权限申请.申请基础权限(this);
 
@@ -121,27 +129,43 @@ public class MainActivity extends AppCompatActivity {
             String A = UI.UI界面_文本框_卡密.getText().toString().trim();
             String B = UI.UI界面_文本框_用户名.getText().toString().trim();
             String C = UI.UI界面_文本框_设备编号.getText().toString().trim();
+            int checkedId = UI.UI界面_单选框组_模式.getCheckedRadioButtonId();
             if (A.isEmpty() || B.isEmpty() || C.isEmpty() ) {
                 UI.弹窗提示("提示", "所有字段都必须填写，不能为空");
                 return;
             }
+            globalvariable.初始化keyhttp参数(MainActivity.this);
 
 
-            if (权限申请.是否有基础权限(this)) {
-                UI.保存当前所有配置();
-                权限申请.控制模式权限申请(this);
-                globalvariable.初始化keyhttp参数(this) ;
-                卡密验证.卡密验证();
+            if(checkedId == R.id.Mode_HID){
+                if (权限申请.是否有基础权限(this)) {
+                    UI.保存当前所有配置();
+                    //检查蓝牙设备
+                    if (globalvariable.蓝牙已连接设备 == ""){
+                        蓝牙管理器.BLUETOOTH();
+                    }
 
+
+                    // 检查令牌
+                    if (globalvariable.截图数据令牌 == null) {
+                        // 申请截图权限
+                        申请截图权限();
+                        // 使用方式完全一样
+
+
+
+                    } else {
+                        // 令牌已存在，直接启动截图服务
+                        startScreenshotService();
+                        // 继续卡密验证
+                        卡密验证.卡密验证();
+                    }
+                } else {
+                    Toast.makeText(this, "请先授予必要权限", Toast.LENGTH_SHORT).show();
+                }
             } else {
-                Toast.makeText(this, "请先授予必要权限", Toast.LENGTH_SHORT).show();
+                卡密验证.卡密验证();
             }
-
-
-
-
-
-
 
 
 
@@ -149,6 +173,47 @@ public class MainActivity extends AppCompatActivity {
 
         });
     }
+
+    private void startScreenshotService() {
+        Intent 意图 = new Intent(this, 截图服务.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(意图);
+        } else {
+            startService(意图);
+        }
+        Log.d(TAG, "截图服务启动命令已发送");
+    }
+
+    public void 申请截图权限() {
+        MediaProjectionManager 管理器 = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+        截图授权启动器.launch(管理器.createScreenCaptureIntent());
+    }
+    private ActivityResultLauncher<Intent> 截图授权启动器 = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            结果 -> {
+                if (结果.getResultCode() == RESULT_OK) {
+                    globalvariable.截图数据令牌结果码 = 结果.getResultCode();
+                    globalvariable.截图数据令牌 = 结果.getData();
+                    Log.d("截图服务", "✓ 数据令牌保存成功");
+
+                    // 启动截图服务
+                    startScreenshotService();
+
+                    // 等待服务初始化完成
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(15); // 等待1.5秒让服务初始化
+                            runOnUiThread(() -> {
+                                // 继续卡密验证
+                                卡密验证.卡密验证();
+                            });
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
+                }
+            }
+    );
 
 
 
@@ -206,6 +271,9 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
+
+
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -226,4 +294,5 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
 }
