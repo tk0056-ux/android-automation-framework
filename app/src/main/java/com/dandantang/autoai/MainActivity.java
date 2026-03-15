@@ -135,24 +135,19 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             globalvariable.初始化keyhttp参数(MainActivity.this);
-
+            UI.保存当前所有配置();
 
             if(checkedId == R.id.Mode_HID){
                 if (权限申请.是否有基础权限(this)) {
-                    UI.保存当前所有配置();
                     //检查蓝牙设备
                     if (globalvariable.蓝牙已连接设备 == ""){
                         蓝牙管理器.BLUETOOTH();
                     }
 
-
-                    // 检查令牌
                     if (globalvariable.截图数据令牌 == null) {
                         // 申请截图权限
                         申请截图权限();
                         // 使用方式完全一样
-
-
 
                     } else {
                         // 令牌已存在，直接启动截图服务

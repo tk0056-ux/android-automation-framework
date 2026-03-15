@@ -20,6 +20,9 @@ public class 卡密验证 {
         网络访问.访问POST(globalvariable.keyhttp, globalvariable.keyParameter,1);
     };
     public static void 卡密验证结果处理(String 访问结果){
+        //临时使用
+        验证结果成功();
+
         // 卡密不存在！
         // 2026-3-16 23:25:24|||26084892|||空uictjaxoerprhjukhtmtsda|||1771082724|||7feaa47cba90abec1c0d55fead17561f
         // 帐户已被封停，请联系管理处理！
