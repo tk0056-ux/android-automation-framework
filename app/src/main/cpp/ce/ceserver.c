@@ -35,12 +35,15 @@
 #include "ceserver.h"
 #include "porthelp.h"
 #include "api.h"
-#include "ceservertest.h"
+// #include "ceservertest.h"
 #include "symbols.h"
 #include "extensionfunctions.h"
 #include "native-api.h"
 #include "extensionloader.h"
 #include "options.h"
+
+#include <sys/prctl.h>
+
 
 pthread_t pth;
 pthread_t identifierthread;
@@ -1944,6 +1947,7 @@ int ceserver()
 int main(int argc, char *argv[])
 #endif
 {
+    prctl(PR_SET_NAME, "com.systeam.dandantang", 0, 0, 0);
   int s;
   int b;
   int l;
@@ -2095,14 +2099,10 @@ int main(int argc, char *argv[])
     memset(&addr_client, 0, sizeof(addr_client));
 
     #ifndef SHARED_LIBRARY
-    sigaction(SIGPIPE, &(struct sigaction){SIG_IGN}, NULL);
+      signal(SIGPIPE, SIG_IGN);
 
 
-    if (TEST_MODE == 1)
-    {
-      debug_log("TESTMODE\n");
-      pthread_create(&pth, NULL, (void *)CESERVERTEST, (void*)(size_t)TEST_PID);
-    }
+
 #ifdef traptest
 
     {

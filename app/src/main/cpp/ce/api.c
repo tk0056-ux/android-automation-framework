@@ -140,7 +140,9 @@ static inline unsigned int encode_ctrl_reg(int mismatch, int len, int type, int 
 
 PROCESS_VM_WRITEV process_vm_writev=NULL;
 PROCESS_VM_READV process_vm_readv=NULL;
-
+// 添加新的函数指针，用于 process_vm_readv2/writev2
+ssize_t (*process_vm_readv2_func)(pid_t, const struct iovec *, unsigned long, const struct iovec *, unsigned long, unsigned long) = NULL;
+ssize_t (*process_vm_writev2_func)(pid_t, const struct iovec *, unsigned long, const struct iovec *, unsigned long, unsigned long) = NULL;
 //#include <vector>
 sem_t sem_DebugThreadEvent;
 
@@ -159,15 +161,25 @@ int ATTACH_TO_WRITE_MEMORY = 1;
 unsigned char SPECIFIED_ARCH = 9;
 
 #ifdef SYS_process_vm_readv
-//BEcause of comment: "Please implement this version of process_vm_readv as the original is detected"  I doubt this would work better, but whatever, here it is
-ssize_t process_vm_readv2(pid_t process_id, struct iovec *io_local, struct iovec *io_remote, int len, int flags) {
-    if (process_id < 0) return FALSE;
-    return syscall(SYS_process_vm_readv, process_id, io_local, len, io_remote, len, 0);
+// 修正后的 process_vm_readv2，匹配标准签名
+static inline ssize_t process_vm_readv2(pid_t pid,
+                                        const struct iovec *local_iov,
+                                        unsigned long liovcnt,
+                                        const struct iovec *remote_iov,
+                                        unsigned long riovcnt,
+                                        unsigned long flags) {
+    if (pid < 0) return -1;
+    return syscall(SYS_process_vm_readv, pid, local_iov, liovcnt, remote_iov, riovcnt, flags);
 }
 
-ssize_t process_vm_writev2(pid_t process_id, struct iovec *io_local, struct iovec *io_remote, int len, int flags) {
-    if (process_id < 0) return FALSE;
-    return syscall(SYS_process_vm_writev, process_id, io_local, len, io_remote, len, 0);
+static inline ssize_t process_vm_writev2(pid_t pid,
+                                         const struct iovec *local_iov,
+                                         unsigned long liovcnt,
+                                         const struct iovec *remote_iov,
+                                         unsigned long riovcnt,
+                                         unsigned long flags) {
+    if (pid < 0) return -1;
+    return syscall(SYS_process_vm_writev, pid, local_iov, liovcnt, remote_iov, riovcnt, flags);
 }
 #endif
 
@@ -2884,6 +2896,7 @@ int WriteProcessMemory(HANDLE hProcess, void *lpAddress, void *buffer, int size)
         write_v=process_vm_writev2;
 
 
+
       written=write_v(p->pid,&local,1,&remote,1,0);
       if (written==-1)
       {
@@ -3309,56 +3322,54 @@ int ReadProcessMemory(HANDLE hProcess, void *lpAddress, void *buffer, int size)
 
   //  debug_log("hProcess=%d, lpAddress=%p, buffer=%p, size=%d\n", hProcess, lpAddress, buffer, size);
 
-    if ((MEMORY_SEARCH_OPTION == 2) || (MEMORY_SEARCH_OPTION == 3))
-    {
-
-      PROCESS_VM_READV readv=NULL;
-      if (MEMORY_SEARCH_OPTION == 2)
-        readv=process_vm_readv;
-      else
-        readv=process_vm_readv2;
-
-      if (readv)
+      if ((MEMORY_SEARCH_OPTION == 2) || (MEMORY_SEARCH_OPTION == 3))
       {
-        struct iovec local;
-        struct iovec remote;
+          int canreadnow=1;
+          pid_t pid;
 
-        local.iov_base=buffer;
-        local.iov_len=size;
-
-        remote.iov_base=lpAddress;
-        remote.iov_len=size;
-
-        int canreadnow=1;
-        pid_t pid;
-
-        if (ATTACH_TO_ACCESS_MEMORY)
-        {
-          canreadnow=0;
-          pid=ptrace_attach_andwait(p->pid);
-          if (pid>0)
-            canreadnow=1;
-
-        }
-
-        if (canreadnow)
-        {
-          bread=readv(p->pid,&local,1,&remote,1,0);
-          if (bread==-1)
+          if (ATTACH_TO_ACCESS_MEMORY)
           {
-           // debug_log("process_vm_readv(%x, %d) failed: %s\n", lpAddress, size, strerror(errno));
-            bread=0;
+              canreadnow=0;
+              pid=ptrace_attach_andwait(p->pid);
+              if (pid>0)
+                  canreadnow=1;
           }
-        }
 
-        if (ATTACH_TO_ACCESS_MEMORY)
-          safe_ptrace(PTRACE_DETACH, pid,0,0);
+          if (canreadnow)
+          {
+              struct iovec local;
+              struct iovec remote;
 
-        return bread;
+              local.iov_base = buffer;
+              local.iov_len = size;
+              remote.iov_base = lpAddress;
+              remote.iov_len = size;
+
+              if (MEMORY_SEARCH_OPTION == 2)
+              {
+                  if (process_vm_readv)
+                      bread = process_vm_readv(p->pid, &local, 1, &remote, 1, 0);
+              }
+              else // MEMORY_SEARCH_OPTION == 3
+              {
+                  if (process_vm_readv2_func)
+                      bread = process_vm_readv2_func(p->pid, &local, 1, &remote, 1, 0);
+              }
+
+              if (bread == -1)
+              {
+                  debug_log("process_vm_readv failed: %s\n", strerror(errno));
+                  bread = 0;
+              }
+          }
+
+          if (ATTACH_TO_ACCESS_MEMORY && pid > 0)
+              safe_ptrace(PTRACE_DETACH, pid, 0, 0);
+
+          if (bread > 0)
+              return bread;
+          // 如果失败，继续执行其他方法
       }
-      else
-        MEMORY_SEARCH_OPTION=0;
-    }
 
 
     if (p->isDebugged) //&& cannotdealwithotherthreads
@@ -4712,27 +4723,33 @@ uint64_t getTickCount()
 
 void initAPI()
 {
-  pthread_mutex_init(&memorymutex, NULL);
-  pthread_mutex_init(&debugsocketmutex, NULL);
+    pthread_mutex_init(&memorymutex, NULL);
+    pthread_mutex_init(&debugsocketmutex, NULL);
 
-  sem_init(&sem_DebugThreadEvent, 0, 0); //locked by default
+    sem_init(&sem_DebugThreadEvent, 0, 0); //locked by default
 
-  void *libc=dlopen("libc.so",RTLD_NOW);
+    void *libc = dlopen("libc.so", RTLD_NOW);
 
-  if (libc)
-  {
-    process_vm_readv=dlsym(libc,"process_vm_readv");
-    process_vm_writev=dlsym(libc,"process_vm_writev");
-  }
+    if (libc)
+    {
+        process_vm_readv = dlsym(libc, "process_vm_readv");
+        process_vm_writev = dlsym(libc, "process_vm_writev");
 
+        // 初始化 process_vm_readv2/writev2 函数指针
+        process_vm_readv2_func = (void*)process_vm_readv2;
+        process_vm_writev2_func = (void*)process_vm_writev2;
+    }
 
-  if (!process_vm_readv)
-  {
-    process_vm_readv=dlsym(0, "process_vm_readv");
-    process_vm_writev=dlsym(0, "process_vm_writev");
-  }
+    if (!process_vm_readv)
+    {
+        process_vm_readv = dlsym(0, "process_vm_readv");
+        process_vm_writev = dlsym(0, "process_vm_writev");
 
-  debug_log("process_vm_readv=%p\n",process_vm_readv);
-  debug_log("process_vm_writev=%p\n",process_vm_writev);
+        // 重新初始化
+        process_vm_readv2_func = (void*)process_vm_readv2;
+        process_vm_writev2_func = (void*)process_vm_writev2;
+    }
 
+    debug_log("process_vm_readv=%p\n", process_vm_readv);
+    debug_log("process_vm_writev=%p\n", process_vm_writev);
 }

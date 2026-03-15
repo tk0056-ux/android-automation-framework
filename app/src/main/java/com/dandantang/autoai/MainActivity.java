@@ -22,6 +22,7 @@ import com.dandantang.autoai.javaluamod.javasystemluamod;
 import com.dandantang.autoai.globalvariable;
 import com.dandantang.autoai.服务.卡密验证;
 import com.dandantang.autoai.服务.Lua环境管理器;
+import com.dandantang.autoai.服务.ce;
 
 // 新增：缺少的导入
 import android.content.BroadcastReceiver;
@@ -79,6 +80,8 @@ public class MainActivity extends AppCompatActivity {
         }
         // 初始化Lua管理器
         luaManager = Lua环境管理器.getInstance(this);
+        //  初始化 CE
+        ce.init(this);
 
         // 新增：初始化 BroadcastReceiver
         luaRunReceiver = new BroadcastReceiver() {
@@ -122,8 +125,10 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
+
             if (权限申请.是否有基础权限(this)) {
                 UI.保存当前所有配置();
+                ce.saveSettings(this);
                 globalvariable.初始化keyhttp参数(this) ;
 
                 卡密验证.卡密验证();
