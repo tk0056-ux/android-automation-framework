@@ -134,6 +134,23 @@ public class MainActivity extends AppCompatActivity {
                 UI.弹窗提示("提示", "所有字段都必须填写，不能为空");
                 return;
             }
+            // 检查辅助功能是否开启
+            if (!权限申请.检查辅助功能是否开启(this)) {
+                // 引导用户开启
+                new AlertDialog.Builder(this)
+                        .setTitle("需要辅助功能权限")
+                        .setMessage("为了执行自动化操作，需要开启辅助功能权限")
+                        .setPositiveButton("去开启", (dialog, which) -> {
+                            权限申请.引导开启辅助功能(this);
+                        })
+                        .setNegativeButton("取消", null)
+                        .show();
+            } else {
+                // 辅助功能已开启，可以执行自动化操作
+                Log.d("辅助功能", "已开启");
+            }
+
+
             globalvariable.初始化keyhttp参数(MainActivity.this);
             UI.保存当前所有配置();
 

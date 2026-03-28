@@ -76,7 +76,39 @@ public class 权限申请 {
         }
     }
 
-    // 处理权限结果（在 Activity 的 onActivityResult 中调用）
+
+    /**
+     * 检查辅助功能是否开启
+     */
+    public static boolean 检查辅助功能是否开启(Context context) {
+        int enabled = Settings.Secure.getInt(
+                context.getContentResolver(),
+                Settings.Secure.ACCESSIBILITY_ENABLED,
+                0
+        );
+
+        if (enabled == 1) {
+            String enabledServices = Settings.Secure.getString(
+                    context.getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            );
+
+            String packageName = context.getPackageName();
+            return enabledServices != null && enabledServices.contains(packageName);
+        }
+
+        return false;
+    }
+
+    /**
+     * 引导开启辅助功能
+     */
+    public static void 引导开启辅助功能(Context context) {
+        Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
+        Toast.makeText(context, "请在列表中找到【您的应用名】并开启", Toast.LENGTH_LONG).show();
+    }
 
 
 

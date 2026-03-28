@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">弹弹堂</string>
+    <string name="accessibility_service_description">开启后，应用可以执行自动化操作，如模拟点击、读取屏幕内容等</string>
 </resources>
