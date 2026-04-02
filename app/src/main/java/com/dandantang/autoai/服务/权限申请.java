@@ -64,7 +64,7 @@ public class 权限申请 {
             }
 
         } else if ("root".equals(globalvariable.open模式)) {
-            ce.saveSettings(context,"/com.systeam.dandantang");  // 启动ce
+            ce.saveSettings(context,"/com.systeam.dandantang");  // 只保存路径到配置
             Log.d("控制模式", "当前模式：root ");
 
         } else if ("acc".equals(globalvariable.open模式)) {
@@ -180,7 +180,7 @@ public class 权限申请 {
             editor.putBoolean("auto_start", true); // 自动加载设为：真
             editor.apply();
 
-            Log.d("ce", "执行结果: 权限开启成功，端口已设为 " + port);
+            Log.d("ceset", "执行结果: 权限开启成功，端口已设为 " + port);
 
             // 2. 启动进程并传递端口参数
             // 假设你的 C 代码支持 -p 参数来指定端口

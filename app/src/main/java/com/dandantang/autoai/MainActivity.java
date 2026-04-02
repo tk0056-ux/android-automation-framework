@@ -134,25 +134,37 @@ public class MainActivity extends AppCompatActivity {
                 UI.弹窗提示("提示", "所有字段都必须填写，不能为空");
                 return;
             }
-            // 检查辅助功能是否开启
-            if (!权限申请.检查辅助功能是否开启(this)) {
-                // 引导用户开启
-                new AlertDialog.Builder(this)
-                        .setTitle("需要辅助功能权限")
-                        .setMessage("为了执行自动化操作，需要开启辅助功能权限")
-                        .setPositiveButton("去开启", (dialog, which) -> {
-                            权限申请.引导开启辅助功能(this);
-                        })
-                        .setNegativeButton("取消", null)
-                        .show();
-            } else {
-                // 辅助功能已开启，可以执行自动化操作
-                Log.d("辅助功能", "已开启");
+            globalvariable.cdk = A;
+            // 无障碍权限
+            if(checkedId == R.id.acc){
+                //  开启无障碍权限
+                if (!权限申请.检查辅助功能是否开启(this)) {
+                    // 引导用户开启
+                    new AlertDialog.Builder(this)
+                            .setTitle("需要辅助功能权限")
+                            .setMessage("为了执行自动化操作，需要开启辅助功能权限")
+                            .setPositiveButton("去开启", (dialog, which) -> {
+                                权限申请.引导开启辅助功能(this);
+                            })
+                            .setNegativeButton("取消", null)
+                            .show();
+                } else {
+                    // 辅助功能已开启，可以执行自动化操作
+                    Log.d("辅助功能", "已开启");
+                }
+            }
+
+            if(checkedId == R.id.mode_root){
+                权限申请 权限工具 = new 权限申请();
+
+                权限工具.suPermissions(this, "19527");
+
+
+
+
             }
 
 
-            globalvariable.初始化keyhttp参数(MainActivity.this);
-            UI.保存当前所有配置();
 
             if(checkedId == R.id.Mode_HID){
                 if (权限申请.是否有基础权限(this)) {
@@ -160,18 +172,9 @@ public class MainActivity extends AppCompatActivity {
                     if (globalvariable.蓝牙已连接设备 == ""){
                         蓝牙管理器.BLUETOOTH();
                     }
+                    HID截图权限申请();
 
-                    if (globalvariable.截图数据令牌 == null) {
-                        // 申请截图权限
-                        申请截图权限();
-                        // 使用方式完全一样
 
-                    } else {
-                        // 令牌已存在，直接启动截图服务
-                        startScreenshotService();
-                        // 继续卡密验证
-                        卡密验证.卡密验证();
-                    }
                 } else {
                     Toast.makeText(this, "请先授予必要权限", Toast.LENGTH_SHORT).show();
                 }
@@ -183,7 +186,27 @@ public class MainActivity extends AppCompatActivity {
 
 
 
+
+            globalvariable.初始化keyhttp参数(MainActivity.this);
+            UI.保存当前所有配置();
+
         });
+    }
+
+    private void HID截图权限申请(){
+        if (globalvariable.截图数据令牌 == null) {
+            // 申请截图权限
+            MediaProjectionManager 管理器 = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+            截图授权启动器.launch(管理器.createScreenCaptureIntent());
+
+
+        } else {
+            // 令牌已存在，直接启动截图服务
+            startScreenshotService();
+            // 继续卡密验证
+            卡密验证.卡密验证();
+        }
+
     }
 
     private void startScreenshotService() {
@@ -196,10 +219,7 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "截图服务启动命令已发送");
     }
 
-    public void 申请截图权限() {
-        MediaProjectionManager 管理器 = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
-        截图授权启动器.launch(管理器.createScreenCaptureIntent());
-    }
+
     private ActivityResultLauncher<Intent> 截图授权启动器 = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             结果 -> {

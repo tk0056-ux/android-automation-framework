@@ -1,6 +1,7 @@
 package com.dandantang.autoai;
 
 import android.content.Context;
+import android.util.Log;
 import android.widget.EditText;
 
 import com.dandantang.autoai.服务.信息读取;
@@ -23,6 +24,7 @@ public class globalvariable {
         // 卫士盾验证的api 卡密验证地址  不同的软件 需要使用不同的地址
          keyhttp = "http://47.97.191.182:45561/0q6d1h0w0f4l5o7w";
          keyParameter = "CardPwd="+cdk+"&Mac=" + 信息读取.机器码(context)+"&LgCity="+Internetip;
+        Log.d("http验证参数", "初始化keyhttp参数: " +keyParameter);
     }
 
 
