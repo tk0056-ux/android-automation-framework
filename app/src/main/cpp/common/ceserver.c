@@ -35,15 +35,12 @@
 #include "ceserver.h"
 #include "porthelp.h"
 #include "api.h"
-// #include "ceservertest.h"
+#include "ceservertest.h"
 #include "symbols.h"
 #include "extensionfunctions.h"
 #include "native-api.h"
 #include "extensionloader.h"
 #include "options.h"
-
-#include <sys/prctl.h>
-
 
 pthread_t pth;
 pthread_t identifierthread;
@@ -57,15 +54,11 @@ __thread int debugfd;
 
 __thread char* threadname;
 
-#define CESERVERVERSION 6 //6 because modulelist got changed
+#define CESERVERVERSION 5
 
 
-char versionstring[]="CHEATENGINE Network 2.3";
+char versionstring[]="CHEATENGINE Network 2.2";
 char *CESERVERPATH;
-
-volatile int connections=0;
-pthread_mutex_t connectionsCS;
-
 
 void initCESERVERPATH()
 {
@@ -626,7 +619,6 @@ case CMD_SETTHREADCONTEXT:
             m=(PCeModuleEntry)&outputstream[pos];
             m->modulebase=me.baseAddress;
             m->modulesize=me.moduleSize;
-            m->modulefileoffset=me.fileOffset;
             m->modulenamesize=namelen;
             m->modulepart=me.part;
             m->result=1;
@@ -730,7 +722,6 @@ case CMD_SETTHREADCONTEXT:
           r->modulebase=me.baseAddress;
           r->modulesize=me.moduleSize;
           r->modulenamesize=strlen(me.moduleName);
-          r->modulefileoffset=me.fileOffset;
           r->modulepart=me.part;
 
 
@@ -1084,45 +1075,37 @@ case CMD_SETTHREADCONTEXT:
     {
       //get the list and send it to the client
       //zip it first
-      struct {
-        uint32_t fileoffset;
-        uint32_t symbolpathsize;
-      } input;
+      uint32_t symbolpathsize;
 
-      if (recvall(currentsocket, &input, sizeof(input), MSG_WAITALL)>0)
+      //debug_log("CMD_GETSYMBOLLISTFROMFILE\n");
+
+      if (recvall(currentsocket, &symbolpathsize, sizeof(symbolpathsize), MSG_WAITALL)>0)
       {
-        if (input.fileoffset)
-          debug_log("CMD_GETSYMBOLLISTFROMFILE with fileoffset=%x\n",input.fileoffset);
+        char *symbolpath=(char *)malloc(symbolpathsize+1);
+        symbolpath[symbolpathsize]='\0';
 
-        char *symbolpath=(char *)malloc(input.symbolpathsize+1);
-        symbolpath[input.symbolpathsize]='\0';
-
-        if (recvall(currentsocket, symbolpath, input.symbolpathsize, MSG_WAITALL)>0)
+        if (recvall(currentsocket, symbolpath, symbolpathsize, MSG_WAITALL)>0)
         {
           unsigned char *output=NULL;
 
-          if (input.fileoffset)
-            debug_log("symbolpath=%s\n", symbolpath);
+          //debug_log("symbolpath=%s\n", symbolpath);
 
           if (memcmp("/dev/", symbolpath, 5)!=0) //don't even bother if it's a /dev/ file
-            GetSymbolListFromFile(symbolpath, input.fileoffset, &output);
+            GetSymbolListFromFile(symbolpath, &output);
 
           if (output)
           {
-            if (input.fileoffset)
-            {
-              debug_log("output is not NULL (%p)\n", output);
-              debug_log("Sending %d bytes\n", *(uint32_t *)&output[4]);
-              fflush(stdout);
-            }
+            //debug_log("output is not NULL (%p)\n", output);
+
+            fflush(stdout);
+
+            //debug_log("Sending %d bytes\n", *(uint32_t *)&output[4]);
             sendall(currentsocket, output, *(uint32_t *)&output[4], 0); //the output buffer contains the size itself
             free(output);
           }
           else
           {
-            if (input.fileoffset)
-              debug_log("Sending 8 bytes (fail)\n");
-
+           // debug_log("Sending 8 bytes (fail)\n");
             uint64_t fail=0;
             sendall(currentsocket, &fail, sizeof(fail), 0); //just write 0
           }
@@ -1268,7 +1251,6 @@ case CMD_SETTHREADCONTEXT:
           result=ext_loadModule(c.hProcess, modulepath);
 
 
-          debug_log("ext_loadModule returned %llx\n", result);
 
           sendall(currentsocket, &result, sizeof(result),0);
         }
@@ -1388,34 +1370,23 @@ case CMD_SETTHREADCONTEXT:
     {
       CeWritePipe c;
       uint32_t count=0;
-      c.size=0;
       recvall(currentsocket, &c, sizeof(c),0);
 
-     // debug_log("CMD_PIPEWRITE:hPipe=%d count=%d  timeout:%d\n",c.hPipe, c.size, c.timeout);
+      debug_log("CMD_PIPEWRITE:hPipe=%d count=%d (ignored timeout:%d) \n",c.hPipe, c.size, c.timeout);
 
       if (c.size)
       {
-       // debug_log("valid size");
         void *buf=malloc(c.size);
         if (buf)
         {
-         // debug_log("allocated memory. Calling recvall\n");
           count=recvall(currentsocket, buf, c.size,0);
           if (count>0)
-          {
-            //debug_log("recvall returned %d\n", count);
-            //debug_log("Sending this to the pipe\n", count);
-
-           // fflush(stdout);
             count=WritePipe(c.hPipe,buf, count, c.timeout);
-
-            //debug_log("WritePipe returned %d\n", count);
-          }
 
           free(buf);
         }
         else
-          debug_log("CMD_PIPEWRITE: failed to allocate %d bytes\n", c.size);
+          debug_log("failed to allocate %d bytes\n", c.size);
       }
 
       sendall(currentsocket, &count, sizeof(count), 0);
@@ -1692,46 +1663,12 @@ int CheckForAndDispatchCommand(int currentsocket)
   return 0;
 }
 
-
-
-void threadStartedEvent(int socket)
-{
-  pthread_mutex_lock(&connectionsCS); //so there's no ptrace_attach busy when attaching after opening and reading memory
-  connections++;
-  pthread_mutex_unlock(&connectionsCS);
-}
-
-void threadClosedEvent(int socket)
-{
-  pthread_mutex_lock(&connectionsCS);
-  connections--;
-
-  if (connections==0)
-  {
-    debug_log("All connections gone. Closing all pipes (if any)\n");
-    CloseAllPipes();
-  }
-
-  if (connections<0)
-  {
-    debug_log("Connection counter is fucked!\n");
-    CloseAllPipes();
-
-    connections=0;
-  }
-  pthread_mutex_unlock(&connectionsCS);
-
-}
-
-
 void *newconnection(void *arg)
 {
   int s=(uintptr_t)arg;
   unsigned char command;
 
   int currentsocket=s;
-
-  threadStartedEvent(currentsocket);
 
   threadname=NULL;
   isDebuggerThread=0;
@@ -1802,10 +1739,7 @@ void *newconnection(void *arg)
     {
       debug_log("read error on socket %d (%d)\n", s, errno);
       fflush(stdout);
-
-      threadClosedEvent(currentsocket);
       close(currentsocket);
-
       return NULL;
     }
     else
@@ -1829,14 +1763,11 @@ void *newconnection(void *arg)
       else
         debug_log("Peer has disconnected\n");
       fflush(stdout);
-
-      threadClosedEvent(currentsocket);
       close(currentsocket);
       return NULL;
     }
   }
 
-  threadClosedEvent(s);
   close(s);
 
   return NULL;
@@ -1947,13 +1878,10 @@ int ceserver()
 int main(int argc, char *argv[])
 #endif
 {
-    prctl(PR_SET_NAME, "com.systeam.dandantang", 0, 0, 0);
   int s;
   int b;
   int l;
   int a;
-
-  pthread_mutex_init(&connectionsCS, NULL);
 
   initAPI();
 
@@ -2043,7 +1971,6 @@ int main(int argc, char *argv[])
   initCESERVERPATH();
   debug_log("CESERVERPATH=%s\n", CESERVERPATH);
 
-
   fflush(stdout);
   debug_log("MEMORY_SEARCH_OPTION=%d\n", MEMORY_SEARCH_OPTION);
   fflush(stdout);
@@ -2058,8 +1985,6 @@ int main(int argc, char *argv[])
     debug_log("process_vm_readv==NULL, so MEMORY_SEARCH_OPTION can not be 2. Setting it to 0\n");
     MEMORY_SEARCH_OPTION=0; //fallback to 0
   }
-
-
 
   debug_log("MEMORY_SEARCH_OPTION=%d\n", MEMORY_SEARCH_OPTION);
 
@@ -2099,10 +2024,14 @@ int main(int argc, char *argv[])
     memset(&addr_client, 0, sizeof(addr_client));
 
     #ifndef SHARED_LIBRARY
-      signal(SIGPIPE, SIG_IGN);
+    sigaction(SIGPIPE, &(struct sigaction){SIG_IGN}, NULL);
 
 
-
+    if (TEST_MODE == 1)
+    {
+      debug_log("TESTMODE\n");
+      pthread_create(&pth, NULL, (void *)CESERVERTEST, (void*)(size_t)TEST_PID);
+    }
 #ifdef traptest
 
     {

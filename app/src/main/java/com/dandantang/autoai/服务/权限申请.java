@@ -64,7 +64,7 @@ public class 权限申请 {
             }
 
         } else if ("root".equals(globalvariable.open模式)) {
-            ce.saveSettings(context,"/com.systeam.dandantang");  // 只保存路径到配置
+            //
             Log.d("控制模式", "当前模式：root ");
 
         } else if ("acc".equals(globalvariable.open模式)) {
@@ -165,35 +165,5 @@ public class 权限申请 {
     }
 
 
-    // 建议移除 static，或者保留 static 但必须传入 context
-    // 移除 static，增加 context 和 port 参数
-    public void suPermissions(Context context, String port) {
-        ce myCe = new ce();
 
-        // 逻辑判断：真
-        if (myCe.判断是否开启SU() == true) {
-
-            // 1. 执行保存：存入 SharedPreferences
-            // 这里的 port 是你调用时指定的“随机端口”
-            SharedPreferences.Editor editor = context.getSharedPreferences("config", Context.MODE_PRIVATE).edit();
-            editor.putString("port", port); // 已经过“到文本”处理
-            editor.putBoolean("auto_start", true); // 自动加载设为：真
-            editor.apply();
-
-            Log.d("ceset", "执行结果: 权限开启成功，端口已设为 " + port);
-
-            // 2. 启动进程并传递端口参数
-            // 假设你的 C 代码支持 -p 参数来指定端口
-            try {
-                // 将端口动态拼接到命令中
-                String command = "su -c /data/local/tmp/com.systeam.dandantang -p " + port;
-                Runtime.getRuntime().exec(command);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-        } else {
-            Log.d("ce", "执行结果: 权限开启失败 (假)");
-        }
-    }
 }

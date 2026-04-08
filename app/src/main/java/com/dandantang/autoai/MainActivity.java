@@ -88,8 +88,8 @@ public class MainActivity extends AppCompatActivity {
         }
         // 初始化Lua管理器
         luaManager = Lua环境管理器.getInstance(this);
-        //  初始化 CE
-        ce.init(this);
+
+
 
         // 新增：初始化 BroadcastReceiver
         luaRunReceiver = new BroadcastReceiver() {
@@ -155,9 +155,15 @@ public class MainActivity extends AppCompatActivity {
             }
 
             if(checkedId == R.id.mode_root){
+                UI.保存当前所有配置();
                 权限申请 权限工具 = new 权限申请();
 
-                权限工具.suPermissions(this, "19527");
+                //权限工具.suPermissions(this, "19527");
+
+
+
+                权限申请.控制模式权限申请(this);
+                ce.startService(this, 52736);//  启动ce
 
 
 

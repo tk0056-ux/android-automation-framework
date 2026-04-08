@@ -47,7 +47,6 @@
 typedef struct
 {
   unsigned long long baseAddress;
-  uint32_t fileOffset;
   int part;
   int is64bit;
   int moduleSize;
@@ -293,11 +292,8 @@ uint32_t linuxProtectionToWindows(int prot);
 HANDLE OpenPipe(char *pipename, int timeout);
 int ReadPipe(HANDLE ph, void* destination, int size, int timeout);
 int WritePipe(HANDLE ph, void* source, int size, int timeout);
-void CloseAllPipes();
 
 uint64_t getTickCount();
-
-
 
 void initAPI();
 

@@ -24,6 +24,7 @@ import android.widget.Toast;
 
 import com.dandantang.autoai.R;
 import com.dandantang.autoai.服务.Lua环境管理器;
+import com.dandantang.autoai.服务.ce;
 
 public class 悬浮窗服务 extends Service {
     private Lua环境管理器 luaManager;
@@ -203,8 +204,10 @@ public class 悬浮窗服务 extends Service {
         });
 
         停止按钮.setOnClickListener(v -> {
+            ce.stopService();
             luaManager.停止所有脚本();
             isRunning = false;
+
             stopSelf();
         });
 
